@@ -1,0 +1,117 @@
+You are an academic project assistant.
+
+I am working on an Operating Systems course project titled:
+
+“Traffic Light Management System using Operating System Scheduling Concepts”
+
+I have a reference research paper that models traffic control as an Operating System (Traffic Light Management Operating System – TLMOS), which uses advanced techniques like Max-Pressure scheduling, Weighted Fair Queuing, Deadlock Detection using Wait-for Graphs, and Reinforcement Learning.
+
+However, my project must be an UNDERGRADUATE-LEVEL OS PROJECT.
+
+Your task is to DESIGN and IMPLEMENT a SIMPLIFIED, EDUCATIONAL version of this idea, inspired by the research paper but NOT copying or reimplementing its advanced algorithms.
+
+========================
+PART 1: SYSTEM DESIGN & NOVELTY
+========================
+
+1. Clearly state that the project is *inspired by OS-based traffic management research*, but is intentionally simplified for OS coursework.
+2. Define the novelty as:
+   - Translating Operating System concepts (process scheduling, queues, preemption, interrupts) into a traffic simulation
+   - Avoiding complex AI / SUMO / Reinforcement Learning
+   - Focusing purely on OS scheduling logic
+
+3. Explicitly map:
+   - Vehicles → Processes
+   - Roads → Ready Queues
+   - Intersection → CPU
+   - Traffic Controller → OS Kernel
+   - Emergency Vehicle Arrival → Hardware Interrupt
+   - Signal Override → Preemption
+
+========================
+PART 2: PYTHON IMPLEMENTATION
+========================
+
+Create a fully working Python-based Traffic Light Management System with the following requirements:
+
+Core Requirements:
+- Use Round Robin Scheduling for normal traffic flow
+- Each road gets a fixed time quantum (green signal duration)
+- Support both 3-way and 4-way intersections
+- Maintain a queue of vehicles for each road
+- Process a limited number of vehicles per time slice
+
+Emergency Handling:
+- Emergency vehicles (ambulance, police) have higher priority
+- Emergency arrival triggers an interrupt
+- Current cycle is preempted immediately
+- Emergency road gets exclusive green signal
+- After emergency clearance, system resumes Round Robin scheduling
+
+Metrics:
+- Calculate and print:
+  - Waiting Time
+  - Turnaround Time
+  - Number of vehicles processed per road
+  - Total vehicles processed
+- Clearly explain how these metrics relate to OS scheduling metrics
+
+Code Structure (IMPORTANT):
+Organize code into multiple Python files:
+- vehicle.py → Vehicle class (normal / emergency)
+- road.py → Road class with vehicle queue
+- scheduler.py → Round Robin + Priority logic
+- controller.py → Traffic Light Controller (Kernel)
+- console_sim.py → Main runnable console simulation
+
+The console simulation MUST:
+- Run directly using `python console_sim.py`
+- Print step-by-step traffic light state changes
+- Clearly show emergency preemption
+- Be simple, readable, and well-commented
+
+========================
+PART 3: RESEARCH PAPER (MINI)
+========================
+
+Along with the code, generate a SHORT research-style document (6–8 pages equivalent text) with the following sections:
+
+1. Abstract  
+2. Introduction  
+   - Traffic congestion as a shared resource problem
+   - Motivation for OS-based traffic control
+3. Related Work  
+   - Mention fixed-time traffic lights
+   - Briefly reference advanced systems like TLMOS
+   - Explain why such systems are complex for undergraduate implementation
+4. System Model & OS Mapping  
+   - Detailed OS ↔ Traffic analogy table
+5. Scheduling Algorithms Used  
+   - Round Robin Scheduling
+   - Priority Scheduling
+   - Interrupt Handling
+6. Implementation Details  
+   - Python modules
+   - Console simulation design
+7. Results & Discussion  
+   - Fairness
+   - Starvation avoidance
+   - Emergency response effectiveness
+8. Novelty Statement  
+   - Clearly explain how this project differs from full-scale research systems
+9. Conclusion & Future Work  
+
+Tone:
+- Academic
+- Clear
+- Honest
+- Undergraduate-appropriate
+
+DO NOT:
+- Use SUMO
+- Use Reinforcement Learning
+- Claim original invention of advanced algorithms
+
+The final output should be:
+1. Fully working Python code
+2. A clearly written research-style explanation aligned with the code
