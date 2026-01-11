@@ -163,9 +163,9 @@ export class TrafficScheduler {
     }
 
     if (!emergencyPending) {
-      // Max-Pressure / Demand-Based Logic
+      // Max-Pressure (Aging) Logic
       // 1. Skip Empty Roads
-      // 2. Variable Timing (2s per vehicle, min 4s, max 12s)
+      // 2. Variable Timing (2s per vehicle, min 4s, max 10s)
       
       if (activeRoad.greenTimeRemaining <= 0 || activeRoad.queue.length === 0) {
         if (activeRoad.greenTimeRemaining <= 0) {
@@ -180,32 +180,33 @@ export class TrafficScheduler {
 
         for (let i = 0; i < this.roads.length; i++) {
           const road = this.roads[i];
-          if (road.queue.length > 0) {
-            const effectivePressure = road.queue.length + road.waitCount;
-            if (effectivePressure > maxEffectivePressure) {
-              maxEffectivePressure = effectivePressure;
-              nextRoadIndex = i;
-            }
+          const effectivePressure = road.queue.length + road.waitCount;
+          
+          if (effectivePressure > 0 && effectivePressure > maxEffectivePressure) {
+            maxEffectivePressure = effectivePressure;
+            nextRoadIndex = i;
           }
         }
 
         if (nextRoadIndex !== -1) {
-          // Increment waitCount for all other roads with vehicles that were skipped
+          // Aging & Reset logic
           for (let i = 0; i < this.roads.length; i++) {
-            if (i !== nextRoadIndex && this.roads[i].queue.length > 0) {
-              this.roads[i].waitCount++;
+            if (i === nextRoadIndex) {
+              this.roads[i].waitCount = 0; // Reset selected
+            } else {
+              this.roads[i].waitCount += 1; // Increment others
             }
           }
 
-          // Dynamic Quantum Calculation
+          // Dynamic Quantum Calculation (2s per vehicle, min 4s, max 10s)
           const road = this.roads[nextRoadIndex];
-          const dynamicQuantum = Math.min(Math.max(road.queue.length * 2, 4), 12);
+          const dynamicQuantum = Math.min(Math.max(road.queue.length * 2, 4), 10);
           road.quantum = dynamicQuantum;
           
-          this.log(`Max-Pressure (Aging): Selecting ${road.name} (Queue=${road.queue.length}, WaitCount=${road.waitCount}). Effective Pressure=${maxEffectivePressure}`);
+          this.log(`Max-Pressure (Aging): Selecting ${road.name} (Queue=${road.queue.length}, WaitCount=${this.roads[nextRoadIndex].waitCount}). Effective Pressure=${maxEffectivePressure}. Quantum=${dynamicQuantum}s`);
           this.triggerContextSwitch(nextRoadIndex);
         } else {
-          // All roads empty
+          // All roads empty and no wait counts
           this.activeRoadIndex = null;
           this.log("All Ready Queues empty. System entering IDLE state.");
         }
