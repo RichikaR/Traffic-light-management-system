@@ -159,21 +159,42 @@ export class TrafficScheduler {
     }
 
     if (!emergencyPending) {
-      // Round Robin Logic: Time Quantum Expired?
-      // Or if current road is empty and we want to be efficient (optional OS optimization: yield)
-      // Strict RR waits for quantum. Let's do Strict RR but yield if empty to be "smart".
-      // Actually, standard RR usually uses full quantum or yields on I/O.
-      // Let's strictly follow quantum for visual clarity unless empty.
+      // Max-Pressure / Demand-Based Logic
+      // 1. Skip Empty Roads
+      // 2. Variable Timing (2s per vehicle, min 4s, max 12s)
       
       if (activeRoad.greenTimeRemaining <= 0 || activeRoad.queue.length === 0) {
-         if (activeRoad.greenTimeRemaining <= 0) {
-             this.log(`Quantum Expired for ${activeRoad.name}. Scheduling next process.`);
-         } else {
-             this.log(`Ready Queue Empty on ${activeRoad.name}. Yielding CPU.`);
-         }
-         
-         const nextIndex = (this.activeRoadIndex + 1) % this.roads.length;
-         this.triggerContextSwitch(nextIndex);
+        if (activeRoad.greenTimeRemaining <= 0) {
+          this.log(`Quantum Expired for ${activeRoad.name}. Re-evaluating Demand...`);
+        } else {
+          this.log(`Ready Queue Empty on ${activeRoad.name}. Yielding CPU.`);
+        }
+
+        // Find road with MAX PRESSURE (most vehicles)
+        let maxPressure = -1;
+        let nextRoadIndex = -1;
+
+        for (let i = 0; i < this.roads.length; i++) {
+          const pressure = this.roads[i].queue.length;
+          if (pressure > 0 && pressure > maxPressure) {
+            maxPressure = pressure;
+            nextRoadIndex = i;
+          }
+        }
+
+        if (nextRoadIndex !== -1) {
+          // Dynamic Quantum Calculation
+          const road = this.roads[nextRoadIndex];
+          const dynamicQuantum = Math.min(Math.max(road.queue.length * 2, 4), 12);
+          road.quantum = dynamicQuantum;
+          
+          this.log(`Max-Pressure: Selecting ${road.name} (${road.queue.length} vehicles). Dynamic Quantum=${dynamicQuantum}s`);
+          this.triggerContextSwitch(nextRoadIndex);
+        } else {
+          // All roads empty
+          this.activeRoadIndex = null;
+          this.log("All Ready Queues empty. System entering IDLE state.");
+        }
       }
     }
   }
