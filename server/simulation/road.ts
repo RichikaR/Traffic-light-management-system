@@ -8,6 +8,7 @@ export class Road {
   isGreen: boolean;
   greenTimeRemaining: number;
   quantum: number; // Time quantum for Round Robin
+  waitCount: number; // For Aging Mechanism to prevent starvation
 
   constructor(id: number, name: string, quantum: number = 5) {
     this.id = id;
@@ -16,6 +17,7 @@ export class Road {
     this.isGreen = false;
     this.greenTimeRemaining = 0;
     this.quantum = quantum;
+    this.waitCount = 0;
   }
 
   addVehicle(vehicle: Vehicle) {

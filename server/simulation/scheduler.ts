@@ -90,6 +90,10 @@ export class TrafficScheduler {
     this.isContextSwitching = true;
     this.contextSwitchTimer = this.CONTEXT_SWITCH_TIME;
     this.activeRoadIndex = nextRoadIndex; // Prepare switch
+    
+    // Reset waitCount for the road getting green
+    this.roads[nextRoadIndex].waitCount = 0;
+    
     this.log(`Context Switch Initiated... (Yellow Light for ${this.CONTEXT_SWITCH_TIME}s)`);
   }
 
@@ -170,25 +174,35 @@ export class TrafficScheduler {
           this.log(`Ready Queue Empty on ${activeRoad.name}. Yielding CPU.`);
         }
 
-        // Find road with MAX PRESSURE (most vehicles)
-        let maxPressure = -1;
+        // Find road with MAX EFFECTIVE PRESSURE (queue + waitCount)
+        let maxEffectivePressure = -1;
         let nextRoadIndex = -1;
 
         for (let i = 0; i < this.roads.length; i++) {
-          const pressure = this.roads[i].queue.length;
-          if (pressure > 0 && pressure > maxPressure) {
-            maxPressure = pressure;
-            nextRoadIndex = i;
+          const road = this.roads[i];
+          if (road.queue.length > 0) {
+            const effectivePressure = road.queue.length + road.waitCount;
+            if (effectivePressure > maxEffectivePressure) {
+              maxEffectivePressure = effectivePressure;
+              nextRoadIndex = i;
+            }
           }
         }
 
         if (nextRoadIndex !== -1) {
+          // Increment waitCount for all other roads with vehicles that were skipped
+          for (let i = 0; i < this.roads.length; i++) {
+            if (i !== nextRoadIndex && this.roads[i].queue.length > 0) {
+              this.roads[i].waitCount++;
+            }
+          }
+
           // Dynamic Quantum Calculation
           const road = this.roads[nextRoadIndex];
           const dynamicQuantum = Math.min(Math.max(road.queue.length * 2, 4), 12);
           road.quantum = dynamicQuantum;
           
-          this.log(`Max-Pressure: Selecting ${road.name} (${road.queue.length} vehicles). Dynamic Quantum=${dynamicQuantum}s`);
+          this.log(`Max-Pressure (Aging): Selecting ${road.name} (Queue=${road.queue.length}, WaitCount=${road.waitCount}). Effective Pressure=${maxEffectivePressure}`);
           this.triggerContextSwitch(nextRoadIndex);
         } else {
           // All roads empty
