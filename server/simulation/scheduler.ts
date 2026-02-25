@@ -230,17 +230,27 @@ export class TrafficScheduler {
     return {
       roads: this.roads.map(r => r.toJSON()),
       currentTime: this.currentTime,
-      activeRoadId: this.activeRoadIndex,
+      activeRoadId: this.activeRoadIndex ?? -1,
       isEmergencyActive: this.interruptActive,
       isRunning: this.isRunning,
       metrics: this.metrics,
       logs: this.logs
     };
   }
+reset() {
+  const fresh = new TrafficScheduler();
 
-  reset() {
-    this.constructor(); // Re-init
-  }
+  this.roads = fresh.roads;
+  this.currentTime = fresh.currentTime;
+  this.activeRoadIndex = fresh.activeRoadIndex;
+  this.isRunning = fresh.isRunning;
+  this.logs = fresh.logs;
+  this.metrics = fresh.metrics;
+  this.isContextSwitching = fresh.isContextSwitching;
+  this.contextSwitchTimer = fresh.contextSwitchTimer;
+  this.interruptActive = fresh.interruptActive;
+}
+
 }
 
 // Singleton Instance
