@@ -1,0 +1,5 @@
+scenario,controller,avg_delay_s_per_veh,context_switch_count,flush_events,split_failures,simulation_steps,total_veh_seconds,total_departed,throughput_vph,jain_fairness_index,co2_proxy_kg,context_switch_overhead_s,simulation_time_s
+asymmetric,Fixed-Time,1528.33,403,0,0,16952,2750996,1800,,,,,
+asymmetric,Actuated,12.33,418,0,0,3661,22200,1800,,,,,
+asymmetric,Max-Pressure,5.75,1418,0,6800,63840,,296248,16705.7,0.9041,3692.44,4254.0,63840.0
+asymmetric,TLMOS,5.75,1418,0,6800,63840,,296248,16705.7,0.9041,3692.44,4254.0,63840.0

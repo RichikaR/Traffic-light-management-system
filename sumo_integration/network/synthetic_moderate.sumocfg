@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <input>
+        <net-file value="/home/richika-rani/Traffic-light-management-system/sumo_integration/network/synthetic_4way.net.xml"/>
+        <route-files value="/home/richika-rani/Traffic-light-management-system/sumo_integration/network/synthetic_4way_moderate.rou.xml"/>
+    </input>
+    <time>
+        <begin value="0"/>
+        <end value="3600"/>
+        <step-length value="1.0"/>
+    </time>
+    <report>
+        <no-warnings value="true"/>
+        <no-step-log value="true"/>
+    </report>
+</configuration>

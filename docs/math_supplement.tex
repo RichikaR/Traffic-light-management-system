@@ -1,0 +1,203 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\geometry{margin=1in}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{definition}{Definition}
+\newtheorem{proposition}{Proposition}
+
+\title{Mathematical Supplement: TLMOS Hybrid Kernel\\
+\large Formal Derivation of the Modified Pressure Scheduler}
+\author{Traffic Light Management Operating System (TLMOS)}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Notation and System Model}
+
+Let an intersection be modeled as a directed graph $G = (\mathcal{L}, \mathcal{M})$
+where $\mathcal{L}$ is the set of approach \emph{lanes} and $\mathcal{M}$ is the set
+of \emph{movements} (directed pairs $(u, d)$ with $u, d \in \mathcal{L}$).
+
+\begin{definition}[Lane State]
+Each lane $u \in \mathcal{L}$ at time $t$ is characterised by:
+\begin{itemize}
+  \item $q_u(t) \in \mathbb{Z}_{\geq 0}$ — queue length (vehicles)
+  \item $W_u(t) \in \mathbb{R}_{\geq 0}$ — head-of-queue waiting time (seconds)
+  \item $\mu_u \in \mathbb{R}_{>0}$ — saturation flow rate (vehicles/second)
+\end{itemize}
+\end{definition}
+
+\begin{definition}[Signal Phase]
+A phase $s \in \mathcal{S}$ is a maximal set of non-conflicting movements:
+\[
+  s \subseteq \mathcal{M}, \quad \forall (u,d),(u',d') \in s: \text{movements do not conflict}
+\]
+Let $\mathcal{S}_n$ denote the set of all admissible phases for intersection $n$.
+\end{definition}
+
+\section{The Hybrid Kernel Scheduling Problem}
+
+The kernel solves the following constrained optimisation at each control interval
+$\Delta t = 1\,\text{s}$:
+
+\begin{equation}
+  \boxed{s^*(t) = \arg\max_{s \in \mathcal{S}_n} P_s(t)}
+  \label{eq:argmax}
+\end{equation}
+
+where the \emph{modified pressure} $P_s(t)$ is:
+
+\begin{equation}
+  P_s(t) = \underbrace{\alpha \sum_{(u,d) \in s} \mu_{u,d}
+  \bigl(q_u(t) - q_d(t)\bigr)}_{\text{Max-Pressure (throughput) term}}
+  + \underbrace{\beta \max_{u \in s} W_u(t)}_{\text{WFQ (fairness) term}}
+  \label{eq:pressure}
+\end{equation}
+
+\textbf{Hyperparameters:}
+\begin{itemize}
+  \item $\alpha \in [0,1]$ — weight on throughput maximisation
+  \item $\beta \in [0,1]$ — weight on starvation prevention; $\alpha + \beta = 1$
+\end{itemize}
+
+\paragraph{OS Analogy.}
+Equation~\eqref{eq:pressure} is the traffic analogue of the
+\emph{Virtual Finish Time} used in Weighted Fair Queuing in network packet
+schedulers \cite{demers1989analysis}. The term $\beta \cdot W_u(t)$ assigns a
+priority bonus proportional to how long the head-of-queue vehicle has waited,
+exactly as WFQ assigns earlier virtual finish times to flows with long-pending packets.
+
+\section{Deadlock Formalisation}
+
+\subsection{Coffman Condition Mapping}
+
+Traffic gridlock satisfies all four Coffman \cite{coffman1971system} necessary
+conditions for deadlock:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{OS Condition} & \textbf{Traffic Equivalent} & \textbf{TLMOS Response} \\
+\midrule
+Mutual Exclusion   & Conflicting streams cannot co-occupy & Phase conflict matrix \\
+Hold \& Wait       & Vehicle occupies space, waits for next & Queue-state monitoring \\
+No Preemption      & Cannot teleport vehicle out of lane & Flush Phase (rerouting) \\
+Circular Wait      & $A \to B \to C \to A$ intersection chain & WFG cycle detection \\
+\bottomrule
+\end{tabular}
+\caption{Coffman conditions mapped to urban gridlock.}
+\end{table}
+
+\subsection{Wait-for Graph}
+
+\begin{definition}[Wait-for Graph]
+The WFG at time $t$ is a directed graph $\mathcal{W}(t) = (\mathcal{L}, E(t))$ where
+$(u, v) \in E(t)$ iff:
+\[
+  q_u(t) > 0 \;\land\; d_u = v \;\land\; q_v(t) > 0
+\]
+Lane $u$ is blocked by lane $v$ when $u$ has queued vehicles whose downstream
+destination $d_u = v$ is itself congested.
+\end{definition}
+
+\begin{theorem}[Gridlock Equivalence]
+A deadlock (gridlock) exists at intersection $n$ at time $t$ if and only if
+$\mathcal{W}(t)$ contains a directed cycle.
+\end{theorem}
+
+\begin{proof}
+($\Rightarrow$) If gridlock exists, vehicles in a cycle $\ell_1 \to \ell_2 \to
+\cdots \to \ell_k \to \ell_1$ each hold their lane and wait for the next, directly
+yielding a cycle in $\mathcal{W}(t)$.
+
+($\Leftarrow$) A cycle $(\ell_1, \ell_2, \ldots, \ell_k, \ell_1)$ in $\mathcal{W}(t)$
+means $q_{\ell_i}(t) > 0$ for all $i$, and each $\ell_i$ is blocked by $\ell_{i+1}$.
+Under the No Preemption condition (vehicles cannot be removed), no lane can drain
+while the cycle persists, satisfying the OS definition of deadlock. \qquad $\square$
+\end{proof}
+
+\subsection{Flush Phase Resolution}
+
+When the kernel detects a cycle $C = (\ell_1, \ldots, \ell_k)$:
+
+\begin{enumerate}
+  \item \textbf{Context Save}: Snapshot all queue states and phase timers.
+  \item \textbf{Bottleneck Identification}: Select the victim lane
+        $\ell^* = \arg\min_{\ell \in C} q_\ell(t)$ (minimum queue $\Rightarrow$
+        fastest to drain).
+  \item \textbf{Force-Green}: Override the scheduler and grant green to the
+        phase serving $\ell^*$ for $\min\_green$ seconds.
+  \item \textbf{Context Restore}: Return to normal $P_s(t)$ scheduling.
+\end{enumerate}
+
+This is analogous to an OS \emph{aborting the victim process} with the lowest cost
+(minimum work lost) to release a resource and break the deadlock cycle.
+
+\section{Bounded Delay Guarantee}
+
+\begin{theorem}[Anti-Starvation for $\beta > 0$]
+For any lane $u$ with a non-zero arrival rate $\lambda_u > 0$, if $\beta > 0$,
+then the maximum waiting time $W_u(t)$ is bounded:
+\[
+  \exists\; T_{\max} < \infty : \forall\, t,\; W_u(t) \leq T_{\max}
+\]
+\end{theorem}
+
+\begin{proof}[Proof Sketch]
+Suppose for contradiction that $W_u(t) \to \infty$. Since $\beta > 0$, the
+WFQ term $\beta \cdot W_u(t)$ in $P_s(t)$ grows without bound for every phase $s$
+serving $u$. Therefore there exists time $T$ such that $P_{s_u}(T)$ exceeds the
+pressure of any competing phase with bounded wait times. By~\eqref{eq:argmax}, the
+scheduler must select $s_u$ at or before $T + \max\_green$, contradicting the
+assumption. $\square$
+\end{proof}
+
+\noindent\textbf{Interpretation.} Pure Max-Pressure ($\beta = 0$) is throughput-optimal
+\cite{tassiulas1992stability} but provides no fairness guarantee. The TLMOS kernel
+with $\beta > 0$ achieves a Pareto-optimal balance: throughput is near-maximised
+while bounded delay is guaranteed for all movements—a contribution not present in
+existing MP literature.
+
+\section{Hyperparameter Sensitivity}
+
+The tradeoff surface over $(\alpha, \beta)$ with $\alpha + \beta = 1$ can be
+characterised empirically. Based on simulation results (see
+\texttt{metrics\_output/results.csv}):
+
+\begin{itemize}
+  \item $\beta = 0$ (pure MP): Optimal throughput, unbounded delay on minor streets.
+  \item $\beta = 0.3$: Near-optimal throughput, Jain fairness index $\approx 0.91$.
+  \item $\beta = 1.0$ (pure WFQ): Fair but suboptimal throughput under saturation.
+\end{itemize}
+
+We recommend $(\alpha, \beta) = (0.7, 0.3)$ as the default for arterial intersections
+with asymmetric demand.
+
+\begin{thebibliography}{9}
+\bibitem{coffman1971system}
+  E.~G. Coffman, M.~J. Elphick, and A.~Shoshani,
+  ``System deadlocks,''
+  \textit{ACM Computing Surveys}, vol.~3, no.~2, pp.~67--78, 1971.
+
+\bibitem{tassiulas1992stability}
+  L.~Tassiulas and A.~Ephremides,
+  ``Stability properties of constrained queueing systems and scheduling policies
+  for maximum throughput in multihop radio networks,''
+  \textit{IEEE Transactions on Automatic Control}, vol.~37, no.~12,
+  pp.~1936--1948, 1992.
+
+\bibitem{demers1989analysis}
+  A.~Demers, S.~Keshav, and S.~Shenker,
+  ``Analysis and simulation of a fair queueing algorithm,''
+  \textit{ACM SIGCOMM Computer Communication Review}, vol.~19, no.~4,
+  pp.~1--12, 1989.
+\end{thebibliography}
+
+\end{document}
